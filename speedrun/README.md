@@ -74,10 +74,9 @@ commit intentionally "lost" (no branch points at it — recoverable via
 `git reflog`), and a local bare repo standing in for a GitHub-style remote so
 push/pull/fetch can be practiced with no GitHub accounts needed.
 
-Full design rationale (why each bug/branch/commit exists) is in
-[`../handoff.md`](../handoff.md) if you ever need to change the seed data —
-read it before editing `setup-team.sh` or `.ps1`, since they must stay in
-sync with each other.
+If you ever need to change the seed data, read through `setup-team.sh` and
+`.ps1` together first — they must stay byte-identical in what they generate,
+so a change to one needs the matching change in the other.
 
 ## Running the workshop
 

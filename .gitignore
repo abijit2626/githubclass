@@ -4,6 +4,9 @@
 demo/
 handoff.md
 
+# Shown live on screen from the published Claude Artifact instead of hosted here
+visualizer/
+
 # Generated per-team output from speedrun/build-all-teams.sh(.ps1)
 speedrun/dist/
 *.zip
