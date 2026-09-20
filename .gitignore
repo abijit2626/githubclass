@@ -1,5 +1,8 @@
-# Generated instructor demo instance (recreate anytime with demo/start-demo.sh)
-demo/instructor-demo/
+# Instructor-only materials -- not for the public/student-facing repo
+# (demo-script.md has live talking points, handoff.md documents the seeded
+# bug/answer hashes -- kept locally, just not pushed here)
+demo/
+handoff.md
 
 # Generated per-team output from speedrun/build-all-teams.sh(.ps1)
 speedrun/dist/
