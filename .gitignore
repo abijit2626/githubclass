@@ -1,0 +1,10 @@
+# Generated instructor demo instance (recreate anytime with demo/start-demo.sh)
+demo/instructor-demo/
+
+# Generated per-team output from speedrun/build-all-teams.sh(.ps1)
+speedrun/dist/
+*.zip
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
