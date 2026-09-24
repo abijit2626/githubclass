@@ -36,62 +36,6 @@ git config --global user.email "you@example.com"
 
 Every commit you make is stamped with this name and email. Without it your first commit fails with *"Please tell me who you are"*. If you will use GitHub, use the same email as your GitHub account.
 
-### 0.3  Make the default branch name main
-
-```
-git config --global init.defaultBranch main
-```
-
-### 0.4  Choose your editor (optional, avoids the scary vim window)
-
-```
-git config --global core.editor "code --wait"
-```
-
-That is for VS Code. If you ever get stuck in a strange text screen full of ~ characters, press `Esc`, type `:wq`, press `Enter`.
-
-### 0.5  Line endings (optional)
-
-```
-git config --global core.autocrlf true     # Windows
-git config --global core.autocrlf input    # Mac / Linux
-```
-
-### 0.6  Check your settings
-
-```
-git config --global --list
-git config user.name
-```
-
-`--global` means "for every project on this computer". Run the same command inside one project without `--global` to change it for that project only.
-
-**Show:** Show your instructor the output of `git config --global --list`: it must list your name, your email and init.defaultbranch=main.
-
-## Part 0B: Logging in to GitHub (optional today)
-
-Git has no password of its own. You only log in when you talk to a **remote** such as GitHub. Today's questions use a folder on your own computer as the remote, so **skip this part if you have no GitHub account**.
-
-GitHub no longer accepts your account password for Git commands. Use one of these instead:
-
-- **Option 1, easiest: GitHub CLI.** Install it from cli.github.com, then run `gh auth login`. Choose GitHub.com, choose HTTPS, and sign in through the browser. Finish with `gh auth setup-git`.
-- **Option 2: Git Credential Manager.** Included with Git for Windows. The first time you `git push` to a github.com address, a browser window opens so you can sign in, and Git remembers you. On Mac: `brew install --cask git-credential-manager`.
-- **Option 3: personal access token.** On GitHub go to Settings, Developer settings, Personal access tokens. Create one with the *repo* permission. When Git asks for a password, paste the **token** (not your account password).
-- **Option 4: SSH key.** Run `ssh-keygen -t ed25519 -C "you@example.com"`, add the .pub file under GitHub Settings, SSH keys, test with `ssh -T git@github.com`, and use SSH addresses like `git@github.com:user/repo.git`.
-**Make Git remember you** so it does not ask every time:
-
-
-```
-git config --global credential.helper manager        # Windows (usually already set)
-git config --global credential.helper osxkeychain    # Mac
-git config --global credential.helper 'cache --timeout=3600'   # Linux, 1 hour
-```
-
-Check who you are logged in as: `gh auth status`.
-
-
-> **Never** type your password or token into `git config`, save it in a file inside a project, commit it, or share it. A token is a password. If one leaks, delete it on GitHub straight away.
-
 
 ## Part A: Your first repository
 
@@ -99,7 +43,9 @@ Check who you are logged in as: `gh auth status`.
 
 Inside git-practice, make a new folder called **my-project**, go into it, and turn it into a Git repository. Then find out which branch you are on.
 
-*Hint:* mkdir, cd, git init, git branch --show-current
+It should be called **main**. If it says **master**, rename it with `git branch -M main`.
+
+*Hint:* mkdir, cd, git init, git branch --show-current, git branch -M main
 
 **Show:** `git status` runs without a "not a git repository" error, and the branch is called **main**.
 
