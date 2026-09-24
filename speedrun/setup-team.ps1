@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 Generates one team's Git Speedrun repo set: warmup/, cafe-project/,
-cafe-project-origin.git, helper scripts, and task docs.
+cafe-project-origin.git, and the task sheet.
 
 Usage: ./setup-team.ps1 TEAMNAME
 
@@ -68,7 +68,7 @@ $JordanEmail = "jordan@cafe.dev"
 
 # Fixed unix-epoch timestamps (raw git date format: "<epoch> <tz>"), one per
 # seeded commit, so every generated repo has identical history regardless of
-# when or where the script runs. See handoff notes for index -> commit map.
+# when or where the script runs.
 $Dates = @(
   "1705309200 +0000", # 0  C1 Initial commit
   "1705312800 +0000", # 1  C2 Add menu
@@ -81,14 +81,9 @@ $Dates = @(
   "1705338000 +0000", # 8  C9 Add changelog
   "1705395600 +0000", # 9  feature/happy-hour commit
   "1705399200 +0000", # 10 feature/weekend-special commit
-  "1705402800 +0000", # 11 feature/pricing-update commit
-  "1705406400 +0000", # 12 feature/social-links commit
-  "1705410000 +0000", # 13 feature/wip-styles commit 1
-  "1705413600 +0000", # 14 feature/wip-styles commit 2
-  "1705417200 +0000", # 15 feature/wip-styles commit 3
-  "1705420800 +0000", # 16 Jordan's email-fix commit (pushed to origin/main)
-  "1705424400 +0000", # 17 feature/loyalty-card commit
-  "1705482000 +0000"  # 18 lost "Experimental: dark mode toggle" commit
+  "1705406400 +0000", # 11 feature/social-links commit
+  "1705420800 +0000", # 12 Jordan's email-fix commit (pushed to origin/main)
+  "1705424400 +0000"  # 13 feature/loyalty-card commit
 )
 
 function Commit-As {
@@ -115,6 +110,7 @@ Invoke-Git config user.name $SeedName
 Invoke-Git config user.email $SeedEmail
 Invoke-Git config commit.gpgsign false
 Invoke-Git config core.autocrlf false
+Invoke-Git config pull.rebase false
 
 # --- C1: Initial commit ---
 Write-Utf8NoBomLF "README.md" @'
@@ -164,7 +160,6 @@ Bagel ......... $2.75
 '@
 Invoke-Git add menu.txt
 Commit-As "BUG: typo in latte price" $SamName $SamEmail 4
-$C5Hash = (git rev-parse HEAD).Trim()
 
 # --- C6: Fix latte price ---
 Write-Utf8NoBomLF "menu.txt" @'
@@ -198,7 +193,6 @@ Contact: hello@trailheadcaf.dev
 '@
 Invoke-Git add about.txt
 Commit-As "BUG: broken contact email" $SamName $SamEmail 7
-$C8Hash = (git rev-parse HEAD).Trim()
 
 # --- C9: Add changelog ---
 Write-Utf8NoBomLF "CHANGELOG.md" @'
@@ -235,7 +229,7 @@ We're a small cafe serving coffee, tea, and baked goods.
 Contact: hello@trailheadcafe.dev
 '@
 Invoke-Git add about.txt
-Commit-As "Fix contact email typo" $JordanName $JordanEmail 16
+Commit-As "Fix contact email typo" $JordanName $JordanEmail 12
 Invoke-Git push -q origin main
 Pop-Location
 Remove-Item -Recurse -Force $TmpRoot
@@ -262,43 +256,12 @@ Bagel ......... $2.75
 Invoke-Git add menu.txt
 Commit-As "Add weekend special pricing" $SeedName $SeedEmail 10
 
-Invoke-Git switch -q -c feature/pricing-update $C6Hash
-Write-Utf8NoBomLF "menu.txt" @'
-Drip Coffee ......... $2.50
-Latte ......... $4.50
-Muffin ......... $3.75
-Bagel ......... $2.75
-'@
-Invoke-Git add menu.txt
-Commit-As "Bump muffin price" $SeedName $SeedEmail 11
-
 Invoke-Git switch -q -c feature/social-links $C9Hash
 Write-Utf8NoBomLF "social.txt" @'
 Follow us: @trailheadcafe
 '@
 Invoke-Git add social.txt
-Commit-As "Add social links" $SeedName $SeedEmail 12
-
-Invoke-Git switch -q -c feature/wip-styles $C9Hash
-Write-Utf8NoBomLF "styles-notes.txt" @'
-TODO: style ideas
-'@
-Invoke-Git add styles-notes.txt
-Commit-As "WIP: start style tweaks" $SeedName $SeedEmail 13
-
-Write-Utf8NoBomLF "styles-notes.txt" @'
-TODO: style ideas
-- reduce paddingg on buttons
-'@
-Invoke-Git add styles-notes.txt
-Commit-As "WIP: more tweaks" $SeedName $SeedEmail 14
-
-Write-Utf8NoBomLF "styles-notes.txt" @'
-TODO: style ideas
-- reduce padding on buttons
-'@
-Invoke-Git add styles-notes.txt
-Commit-As "Fix typo in WIP commit" $SeedName $SeedEmail 15
+Commit-As "Add social links" $SeedName $SeedEmail 11
 
 Invoke-Git switch -q main
 Invoke-Git switch -q -c feature/loyalty-card
@@ -306,60 +269,16 @@ Write-Utf8NoBomLF "loyalty-card.txt" @'
 Buy 9 coffees, get the 10th free. Ask staff to stamp your card at checkout.
 '@
 Invoke-Git add loyalty-card.txt
-Commit-As "Add loyalty card note" $SeedName $SeedEmail 17
+Commit-As "Add loyalty card note" $SeedName $SeedEmail 13
 
-Invoke-Git switch -q main
-
-# --- lost commit for reflog recovery: last step, on purpose ---
-Invoke-Git checkout -q $C9Hash
-Write-Utf8NoBomLF "dark-mode-notes.txt" @'
-Prototype idea: dark mode toggle in the top nav. Needs design review before
-shipping.
-'@
-Invoke-Git add dark-mode-notes.txt
-Commit-As "Experimental: dark mode toggle" $SeedName $SeedEmail 18
 Invoke-Git switch -q main
 
 Set-Location $BaseDir
 
-# --- helper scripts for the bisect task ---
-Write-Utf8NoBomLF (Join-Path $OutAbs "bisect-check.sh") @'
-#!/usr/bin/env bash
-# Exit 0 = contact email is correct ("good"), exit 1 = still broken ("bad").
-# Run from inside cafe-project/, e.g.: git bisect run bash ../bisect-check.sh
-if [ ! -f about.txt ]; then
-  exit 125
-fi
-if grep -F "hello@trailheadcaf.dev" about.txt > /dev/null 2>&1; then
-  exit 1
-else
-  exit 0
-fi
-'@
-
-Write-Utf8NoBomLF (Join-Path $OutAbs "bisect-check.ps1") @'
-# Exit 0 = contact email is correct ("good"), exit 1 = still broken ("bad").
-# Run from inside cafe-project/, e.g.: git bisect run pwsh ../bisect-check.ps1
-if (-not (Test-Path about.txt)) {
-  exit 125
-}
-$content = Get-Content about.txt -Raw
-if ($content -like "*hello@trailheadcaf.dev*") {
-  exit 1
-} else {
-  exit 0
-}
-'@
-
 Copy-Item (Join-Path $ScriptDir "tasks.md") (Join-Path $OutAbs "TASKS.md")
-
-# --- answer key for check-progress.ps1 (not shown to students) ---
-$C5Short = (git -C $Cafe rev-parse --short $C5Hash).Trim()
-$C8Short = (git -C $Cafe rev-parse --short $C8Hash).Trim()
-Write-Utf8NoBomLF (Join-Path $OutAbs ".answers") "task22=$C5Short`ntask23=$C8Short`n"
 
 Write-Host "Done. Team '$TeamName' is ready in $OutAbs"
 Write-Host "  warmup/                empty, ready for git init"
-Write-Host "  cafe-project/           seeded repo on branch main (9 commits) + 6 feature branches"
+Write-Host "  cafe-project/           seeded repo on branch main (9 commits) + 4 feature branches"
 Write-Host "  cafe-project-origin.git local ""remote"", main pushed, one unfetched commit from Jordan"
-Write-Host "  TASKS.md, bisect-check.sh/.ps1"
+Write-Host "  TASKS.md"
