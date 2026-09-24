@@ -14,3 +14,6 @@ speedrun/dist/
 # OS/editor junk
 .DS_Store
 Thumbs.db
+
+# Speedrun kit removed from the public repo (local copy kept)
+speedrun/

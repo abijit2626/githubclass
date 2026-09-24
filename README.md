@@ -1,8 +1,12 @@
 # Git Workshop Toolkit
 
-A 38-task "Git Speedrun" competition kit for a hands-on Git workshop:
-per-team starter repos with real seeded history, a guaranteed merge
-conflict, a guaranteed rebase conflict, a local fake "remote" (no GitHub
-accounts needed), and an optional auto-scoring script.
+Hands-on material for a beginner Git workshop.
 
-Start with [`speedrun/README.md`](speedrun/README.md).
+- **[`questions/`](questions/)** — 20 build-it-yourself questions plus a short
+  guide to installing Git and setting your name and email. Download
+  [`Git-Workshop-Questions.pdf`](questions/Git-Workshop-Questions.pdf), or read
+  the [Markdown version](questions/Git-Workshop-Questions.md).
+- **[`site/`](site/index.html)** — Git Stage Theatre, an animated visualizer
+  showing what each git command does to your Working Directory, Staging Area,
+  Local Repo and Remote. A single static page; `vercel.json` is set up so it can
+  be hosted on Vercel with no build step.

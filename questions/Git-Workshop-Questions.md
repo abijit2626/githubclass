@@ -1,6 +1,6 @@
 # Git Workshop: Questions
 
-23 hands-on questions plus a Git setup guide.
+20 hands-on questions plus a Git setup guide.
 
 **Name:** ____________  **Team:** ________
 
@@ -268,39 +268,6 @@ Create a branch **feature-hours**, add **hours.txt**, commit it, and push the br
 *Hint:* git push -u origin feature-hours
 
 **Show:** `git branch -r` now lists origin/feature-hours.
-
-- [ ] Done  (instructor initials: ______)
-
-
-## Part F: Extras
-
-### Question 21: Tag a release
-
-Switch back to main. Create a **lightweight** tag called **v1.0** and an **annotated** tag called **v1.1** with the message **Second release**.
-
-*Hint:* git tag, git tag -a
-
-**Show:** `git tag` lists both, and `git show v1.1` displays the message.
-
-- [ ] Done  (instructor initials: ______)
-
-### Question 22: Stop tracking a file by mistake
-
-Create **debug.log** with any text and commit it (pretend it was an accident). Now make Git **stop tracking** it **without deleting the file**, and make sure Git ignores it from now on.
-
-*Hint:* .gitignore, git rm --cached
-
-**Show:** debug.log is still in your folder. After you edit it, `git status` does not mention it.
-
-- [ ] Done  (instructor initials: ______)
-
-### Question 23: Cherry-pick one commit
-
-Create a branch **experiment** and make **two** commits on it: one adding **a.txt**, one adding **b.txt**. Switch to main and bring over **only** the b.txt commit.
-
-*Hint:* git log --oneline to find the hash, then git cherry-pick
-
-**Show:** b.txt exists on main but a.txt does not.
 
 - [ ] Done  (instructor initials: ______)
 
