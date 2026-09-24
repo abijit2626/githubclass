@@ -1,0 +1,1159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#040405">
+<meta name="description" content="Pick a git command and watch what it does to your Working Directory, Staging Area, Local Repo and Remote.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='24' height='24' rx='6' fill='%23111'/%3E%3Ccircle cx='8' cy='7' r='2'/%3E%3Ccircle cx='8' cy='17' r='2'/%3E%3Ccircle cx='16' cy='10' r='2'/%3E%3Cpath d='M8 9v6M16 12c0 3-5 2-8 5'/%3E%3C/svg%3E">
+<title>Git Stage Theatre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Lexend:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#040405; --bg-2:#0C0C0E;
+  --ink:#F2F5FA; --ink-dim:#B4BECE; --ink-faint:#8894A8; --on-ink:#05070B;
+  --glass:rgba(255,255,255,.055); --glass-strong:rgba(255,255,255,.12); --glass-soft:rgba(255,255,255,.04);
+  --glass-fill:linear-gradient(150deg,rgba(255,255,255,.085),rgba(255,255,255,.018) 48%,rgba(255,255,255,.04));
+  --glass-edge:rgba(255,255,255,.13); --glass-hi:rgba(255,255,255,.26);
+  --glass-fallback:rgba(16,20,28,.97);
+  --hairline:rgba(255,255,255,.13); --hairline-strong:rgba(255,255,255,.32);
+  --shadow:rgba(0,0,0,.85);
+  --work:#FFFFFF; --stage:#FFFFFF; --local:#FFFFFF; --remote:#DDE2EA; --stash:#C9CFDA; --danger:#9AA3B2;
+  --bubble-bg:rgba(242,245,250,.97); --bubble-ink:#05070B;
+  --dur:900ms; --ease:cubic-bezier(.4,0,.2,1);
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Lexend",system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px;}
+
+/* ---------- backdrop: black studio with glossy grey spheres behind the glass ---------- */
+.backdrop{position:fixed;inset:0;z-index:-1;overflow:hidden;background:
+  repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 1px,transparent 1px 7px),
+  radial-gradient(120% 90% at 50% 0%,#141518 0%,var(--bg) 62%);}
+.ball{position:absolute;border-radius:50%;will-change:transform;
+  background:radial-gradient(circle at 33% 28%,#C9CCD2 0%,#A3A7AE 8%,#6E727A 26%,#3A3D43 52%,#16171A 80%,#09090A 100%);
+  box-shadow:inset -1.2vmin -1.6vmin 3.5vmin rgba(0,0,0,.6),0 4vmin 7vmin -1vmin rgba(0,0,0,.75);}
+.ball.b1{width:36vmin;height:36vmin;left:-6vmin;bottom:3vmin;animation:float1 22s ease-in-out infinite alternate;}
+.ball.b2{width:26vmin;height:26vmin;right:12vmin;top:5vmin;animation:float2 26s ease-in-out infinite alternate;}
+.ball.b3{width:16vmin;height:16vmin;right:3vmin;bottom:24vmin;animation:float1 30s ease-in-out infinite alternate-reverse;}
+.ball.b4{width:11vmin;height:11vmin;left:38vw;top:-3vmin;animation:float2 34s ease-in-out infinite alternate-reverse;}
+@keyframes float1{to{transform:translate(1.5vmin,-3vmin);}}
+@keyframes float2{to{transform:translate(-2vmin,2.5vmin);}}
+@media (prefers-reduced-motion: reduce){.ball{animation:none;}}
+
+/* ---------- glass ---------- */
+.glass{
+  background:var(--glass-fill);
+  -webkit-backdrop-filter:blur(16px) saturate(115%);
+  backdrop-filter:blur(16px) saturate(115%);
+  border:1px solid var(--glass-edge);
+  border-radius:28px;
+  box-shadow:inset 1px 1px 0 var(--glass-hi), inset -1px -1px 0 rgba(255,255,255,.05), 0 30px 60px -24px var(--shadow);
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .glass{background:var(--glass-fallback);}
+}
+
+/* ---------- layout ---------- */
+.shell{display:grid;grid-template-columns:256px minmax(0,1fr);gap:22px;max-width:1720px;margin:0 auto;padding:22px 24px 44px;align-items:start;}
+.main{display:flex;flex-direction:column;gap:18px;min-width:0;}
+
+/* ---------- sidebar ---------- */
+.side{position:sticky;top:22px;max-height:calc(100vh - 44px);display:flex;flex-direction:column;padding:20px 16px 14px;gap:14px;}
+.brand{display:flex;align-items:center;gap:12px;padding:0 6px;}
+.brand-mark{width:42px;height:42px;flex:none;border-radius:13px;display:grid;place-items:center;background:var(--ink);color:var(--on-ink);}
+.brand h1{margin:0;font:600 25px/1.05 "Barlow Condensed",sans-serif;letter-spacing:.01em;}
+.brand p{margin:2px 0 0;font:400 12.5px/1.3 "Lexend",sans-serif;color:var(--ink-faint);}
+.search{position:relative;}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--ink-faint);pointer-events:none;}
+.search input{width:100%;padding:11px 14px 11px 40px;border-radius:14px;border:1px solid var(--hairline);background:var(--glass-strong);color:var(--ink);font:500 14.5px "Lexend",sans-serif;}
+.search input::placeholder{color:var(--ink-faint);}
+.search input:focus{outline:2px solid var(--ink);outline-offset:1px;}
+.count{font:500 12px "Lexend",sans-serif;color:var(--ink-faint);padding:0 6px;margin-top:-6px;}
+.cmd-grid{overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding:2px 2px 6px;scrollbar-width:thin;scrollbar-color:var(--hairline-strong) transparent;}
+.cat-group{display:flex;flex-direction:column;gap:3px;}
+.cat-label{font:600 11px "Lexend",sans-serif;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint);padding:0 10px 4px;}
+.cat-btns{display:flex;flex-direction:column;gap:2px;}
+.cmd-btn{display:flex;align-items:baseline;justify-content:space-between;gap:10px;width:100%;text-align:left;font:500 15px "Lexend",sans-serif;padding:9px 12px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--ink);cursor:pointer;transition:background .15s,border-color .15s;}
+.cmd-btn .c{font:500 12px "JetBrains Mono",monospace;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.cmd-btn:hover{background:var(--glass-strong);border-color:var(--glass-edge);}
+.cmd-btn.active{background:var(--ink);color:var(--on-ink);}
+.cmd-btn.active .c{color:color-mix(in srgb,var(--on-ink) 72%,transparent);}
+.cmd-btn[hidden]{display:none;}
+.side-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 6px 0;border-top:1px solid var(--hairline);}
+.side-foot span{font:400 12px "Lexend",sans-serif;color:var(--ink-faint);}
+
+/* ---------- command header ---------- */
+.cmd-head{padding:24px 28px 20px;display:flex;flex-direction:column;gap:18px;}
+.head-top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 24px;}
+.eyebrow{font:600 12px "Lexend",sans-serif;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint);}
+.cmd-head h2{margin:2px 0 10px;font:600 clamp(40px,4.2vw,64px)/1 "Barlow Condensed",sans-serif;letter-spacing:.005em;text-wrap:balance;}
+.cmd-head code{display:inline-block;font:600 clamp(15px,1.3vw,18px) "JetBrains Mono",monospace;background:var(--glass-strong);border:1px solid var(--hairline);padding:7px 14px;border-radius:11px;color:var(--ink);}
+.head-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+.btn{display:inline-flex;align-items:center;gap:9px;font:600 15px "Lexend",sans-serif;border-radius:13px;padding:12px 22px;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--on-ink);transition:transform .12s var(--ease),opacity .12s;}
+.btn:hover{transform:translateY(-1px);}
+.btn.ghost{background:var(--glass-strong);color:var(--ink);border-color:var(--hairline-strong);}
+.btn:disabled{opacity:.4;cursor:default;transform:none;}
+.speed-select{font:500 14px "Lexend",sans-serif;border:1px solid var(--hairline-strong);background:var(--glass-strong);color:var(--ink);border-radius:13px;padding:11px 12px;}
+.speed-select{color-scheme:dark;}
+.speed-select option{background:#141518;color:#F2F5FA;}
+.progress-row{display:flex;align-items:center;gap:14px;}
+.progress{flex:1;height:6px;border-radius:99px;background:var(--hairline);overflow:hidden;}
+.progress i{display:block;height:100%;width:0;background:var(--ink);border-radius:99px;transition:width .5s var(--ease);}
+#stepStatus{font:500 13px "Lexend",sans-serif;color:var(--ink-dim);min-width:84px;text-align:right;font-variant-numeric:tabular-nums;}
+
+/* ---------- the four areas ---------- */
+.pipeline{display:flex;align-items:stretch;gap:0;}
+.box{--zone:var(--ink);flex:1 1 0;min-width:148px;padding:16px 15px 16px;display:flex;flex-direction:column;gap:12px;position:relative;transition:box-shadow .3s,border-color .3s,opacity .3s;
+  background:radial-gradient(120% 70% at 0% 0%,color-mix(in srgb,var(--zone) 10%,transparent),transparent 62%),var(--glass-fill);}
+#box-local{flex-grow:2.4;min-width:250px;}
+#box-work{--zone:var(--work);} #box-stage{--zone:var(--stage);} #box-local{--zone:var(--local);} #box-remote{--zone:var(--remote);}
+.box.pulsing{border-color:var(--zone);box-shadow:inset 1px 1px 0 var(--glass-hi),0 0 0 4px color-mix(in srgb,var(--zone) 34%,transparent),0 0 40px -6px color-mix(in srgb,var(--zone) 55%,transparent);}
+.box.inactive{opacity:.5;}
+.box-head{display:flex;align-items:center;gap:11px;}
+.num{width:30px;height:30px;flex:none;border-radius:50%;display:grid;place-items:center;font:700 14px "Lexend",sans-serif;color:var(--ink);background:color-mix(in srgb,var(--zone) 22%,var(--glass-strong));border:2px solid var(--zone);}
+.box-title{font:600 21px/1.1 "Barlow Condensed",sans-serif;letter-spacing:.01em;}
+.box-sub{font:400 12.5px/1.3 "Lexend",sans-serif;color:var(--ink-faint);margin-top:1px;}
+.box-body{flex:1;min-height:132px;display:flex;flex-direction:column;gap:8px;justify-content:flex-start;}
+.empty-note{color:var(--ink-faint);font:400 13px "Lexend",sans-serif;margin:auto;text-align:center;padding:8px 4px;}
+
+.chip-row{display:flex;flex-wrap:wrap;gap:7px;align-content:flex-start;}
+.chip{display:inline-flex;align-items:center;gap:8px;font:500 13.5px "JetBrains Mono",monospace;color:var(--ink);border-radius:11px;padding:7px 11px;background:var(--glass);border:1px solid var(--hairline-strong);white-space:nowrap;transform-origin:center;}
+.chip::before{content:"";width:9px;height:9px;border-radius:50%;flex:none;box-sizing:border-box;border:2px solid var(--ink);background:transparent;}
+.chip.staged{background:var(--glass-strong);border-color:var(--ink);} .chip.staged::before{background:var(--ink);}
+.chip.clean{color:var(--ink-dim);border-color:var(--hairline);} .chip.clean::before{border-color:var(--ink-faint);width:7px;height:7px;}
+.chip.danger{border-style:dashed;color:var(--ink-faint);text-decoration:line-through;} .chip.danger::before{border-color:var(--ink-faint);}
+
+.stash-pocket{margin-top:auto;display:flex;align-items:center;gap:8px;border:1.5px dashed color-mix(in srgb,var(--stash) 75%,transparent);border-radius:12px;padding:7px 11px;color:var(--ink);font:500 12.5px "Lexend",sans-serif;background:color-mix(in srgb,var(--stash) 14%,var(--glass-soft));}
+.stash-pocket svg{color:var(--stash);flex:none;}
+.stash-pocket .n{margin-left:auto;font:700 13px "JetBrains Mono",monospace;}
+
+.chain{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:6px 2px 4px;min-height:84px;scrollbar-width:thin;scrollbar-color:var(--hairline-strong) transparent;}
+.chain.lanes{flex-direction:column;align-items:flex-start;gap:12px;}
+.lane{display:flex;align-items:flex-start;gap:0;}
+.lane-label{font:600 10.5px "JetBrains Mono",monospace;color:var(--ink-faint);width:46px;flex:none;}
+.snap{margin-top:auto;display:flex;flex-direction:column;gap:7px;padding-top:10px;border-top:1px dashed var(--hairline);}
+.snap:empty{display:none;}
+.snap-label{font:600 10px "Lexend",sans-serif;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint);}
+.snap .chip{font-size:12px;padding:4px 9px;}
+.commit-node{display:flex;flex-direction:column;align-items:center;position:relative;padding:0 8px;min-width:48px;}
+.commit-node::before,.commit-node::after{content:"";position:absolute;top:10px;height:2px;background:var(--hairline-strong);}
+.commit-node::before{left:0;width:calc(50% - 13px);}
+.commit-node::after{left:calc(50% + 13px);right:0;}
+.commit-node:first-child::before,.lane-label + .commit-node::before,.commit-node:last-child::after{display:none;}
+.commit-node .dot{width:22px;height:22px;border-radius:50%;background:var(--ink);border:3px solid #0A0D14;box-shadow:0 0 0 2px var(--ink),0 0 20px rgba(255,255,255,.35);}
+.chain[data-kind="remote"] .commit-node .dot{background:transparent;border:3px solid var(--ink);box-shadow:0 0 16px rgba(255,255,255,.22);}
+.commit-node.ghost .dot{background:transparent;box-shadow:0 0 0 2px var(--hairline-strong);border-style:dashed;border-color:var(--hairline-strong);}
+.commit-node.ghost .cid{color:var(--ink-faint);text-decoration:line-through;}
+.commit-node.highlight .dot{box-shadow:0 0 0 5px rgba(255,255,255,.3),0 0 0 2px var(--ink);}
+.commit-node .cid{font:500 11px/1.25 "JetBrains Mono",monospace;color:var(--ink-dim);margin-top:6px;text-align:center;max-width:78px;overflow-wrap:anywhere;}
+.commit-node .tags{display:flex;flex-direction:column;gap:4px;margin-top:6px;align-items:center;}
+.tag{display:inline-flex;align-items:center;gap:5px;font:600 10.5px "JetBrains Mono",monospace;padding:2px 8px;border-radius:999px;white-space:nowrap;border:1.5px solid var(--hairline-strong);background:var(--glass-strong);color:var(--ink);}
+.tag.head{background:var(--ink);color:var(--on-ink);border-color:var(--ink);}
+.tag.branch-main{border-color:var(--ink);}
+.tag.branch-feature{border-color:var(--ink-faint);}
+.tag.branch-tracking{border-color:var(--ink-dim);border-style:dashed;background:transparent;}
+
+/* ---------- links between areas ---------- */
+.link-line{display:flex;align-items:center;justify-content:center;width:46px;flex:0 0 auto;position:relative;}
+.link-line .arrow{width:100%;height:2px;background:var(--hairline-strong);position:relative;border-radius:2px;}
+.link-line .arrow::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left-color:var(--hairline-strong);border-right-width:0;}
+.link-line.net{width:72px;}
+.link-line.net .arrow{background:repeating-linear-gradient(90deg,var(--hairline-strong) 0 6px,transparent 6px 11px);}
+.link-line .verb{position:absolute;top:calc(50% + 11px);left:50%;transform:translateX(-50%);font:600 10.5px "JetBrains Mono",monospace;color:var(--ink-faint);white-space:nowrap;}
+.link-line .lbl{position:absolute;bottom:calc(50% + 9px);left:50%;transform:translateX(-50%);font:700 11px "JetBrains Mono",monospace;color:var(--ink-faint);white-space:nowrap;}
+.link-line.on .arrow{background:var(--ink);}
+.link-line.on .arrow::after{border-left-color:var(--ink);}
+.link-line.on .lbl{color:var(--ink);}
+
+/* ---------- popups ---------- */
+.bubble{position:absolute;z-index:80;background:var(--bubble-bg);color:var(--bubble-ink);font:500 12.5px "JetBrains Mono",monospace;padding:9px 13px;border-radius:12px;max-width:240px;white-space:pre-line;line-height:1.5;box-shadow:0 12px 30px rgba(0,0,0,.28);pointer-events:none;opacity:0;transform:translateY(4px) scale(.96);transition:opacity .25s var(--ease),transform .25s var(--ease);}
+.bubble.show{opacity:1;transform:translateY(0) scale(1);}
+.bubble::after{content:"";position:absolute;left:18px;bottom:-6px;border:6px solid transparent;border-top-color:var(--bubble-bg);border-bottom-width:0;}
+
+/* ---------- explanation ---------- */
+.explain-card{padding:24px 30px 24px;display:flex;flex-direction:column;gap:12px;}
+.explain-card p{margin:0;font:500 clamp(20px,2vw,28px)/1.42 "Lexend",sans-serif;letter-spacing:-.01em;max-width:64ch;text-wrap:pretty;}
+.tip{display:flex;gap:12px;align-items:baseline;background:var(--glass-soft);border:1px solid var(--hairline);border-radius:14px;padding:11px 16px;font:400 15px/1.45 "Lexend",sans-serif;color:var(--ink-dim);max-width:78ch;}
+.tip[hidden]{display:none;}
+.tip-label{font:600 11px "Lexend",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);flex:none;}
+
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font:500 13px "Lexend",sans-serif;color:var(--ink-dim);padding:0 8px;}
+.legend span{display:inline-flex;align-items:center;gap:8px;}
+.legend i{width:12px;height:12px;border-radius:50%;display:inline-block;box-sizing:border-box;}
+.legend .sw-mod{border:2px solid var(--ink);}
+.legend .sw-staged{background:var(--ink);border:2px solid var(--ink);}
+.legend .sw-local{background:var(--ink);box-shadow:0 0 9px rgba(255,255,255,.6);}
+.legend .sw-remote{border:2px solid var(--ink);box-shadow:0 0 9px rgba(255,255,255,.3);}
+.legend .sw-stash{border-radius:4px;border:1.5px dashed var(--ink);}
+.legend .sw-gone{border-radius:4px;border:1.5px dashed var(--ink-faint);}
+
+/* ---------- narrower screens ---------- */
+@media (max-width:1180px){
+  .shell{grid-template-columns:minmax(0,1fr);}
+  .side{position:static;max-height:none;}
+  .cmd-grid{flex-direction:row;flex-wrap:wrap;overflow:visible;gap:16px 24px;}
+  .cat-group{min-width:190px;flex:1 1 190px;}
+}
+@media (max-width:900px){
+  .pipeline{flex-direction:column;}
+  .box{flex:none;min-width:0;}
+  .link-line{width:auto;height:52px;}
+  .link-line .arrow{width:2px;height:100%;}
+  .link-line .arrow::after{right:-4px;top:auto;bottom:-1px;border:5px solid transparent;border-top-color:var(--hairline-strong);border-bottom-width:0;}
+  .link-line.on .arrow::after{border-top-color:var(--ink);border-left-color:transparent;}
+  .link-line .verb{top:50%;left:calc(50% + 14px);transform:translateY(-50%);}
+  .link-line .lbl{bottom:auto;top:50%;left:auto;right:calc(50% + 14px);transform:translateY(-50%);}
+  .cmd-head{padding:20px 18px 16px;}
+  .explain-card{padding:20px 20px;}
+}
+@media (max-width:520px){
+  .shell{padding:14px 16px 32px;}
+  .head-actions{width:100%;}
+  .head-actions .btn{flex:1;justify-content:center;}
+}
+
+html{background:#040405;}
+img{max-width:100%;}
+[hidden]{display:none!important;}
+</style>
+
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"><i class="ball b1"></i><i class="ball b2"></i><i class="ball b3"></i><i class="ball b4"></i></div>
+
+<div class="shell">
+  <aside class="side glass" aria-label="Commands">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.4"/><circle cx="6" cy="19" r="2.4"/><circle cx="18" cy="9" r="2.4"/><path d="M6 7.4v9.2M18 11.4c0 4-6 2.6-11 6"/></svg>
+      </div>
+      <div>
+        <h1>Git Stage Theatre</h1>
+        <p>See what every command moves</p>
+      </div>
+    </div>
+    <div class="search">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search" type="text" placeholder="Search commands" autocomplete="off" aria-label="Search commands">
+    </div>
+    <div class="count" id="countBadge">18 commands</div>
+    <div class="cmd-grid" id="cmdGrid"></div>
+    <div class="side-foot">
+      <span>Press Enter to open the first match</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="cmd-head glass">
+      <div class="head-top">
+        <div>
+          <div class="eyebrow" id="cmdCat">Look Around</div>
+          <h2 id="cmdName">—</h2>
+          <code id="cmdSyntax">git …</code>
+        </div>
+        <div class="head-actions">
+          <select class="speed-select" id="speed" aria-label="Animation speed">
+            <option value="1600">Slow</option>
+            <option value="900" selected>Normal</option>
+            <option value="450">Fast</option>
+          </select>
+          <button class="btn ghost" id="replayBtn" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+            Replay
+          </button>
+          <button class="btn" id="runBtn" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>
+            Run
+          </button>
+        </div>
+      </div>
+      <div class="progress-row">
+        <div class="progress" role="progressbar" aria-label="Animation progress"><i id="progressBar"></i></div>
+        <span id="stepStatus">Ready</span>
+      </div>
+    </header>
+
+    <section class="pipeline" id="boxes" aria-label="The four places your work lives">
+      <div class="box glass" id="box-work" data-box="work">
+        <div class="box-head"><span class="num">1</span><div><div class="box-title">Working Directory</div><div class="box-sub">the files on your disk</div></div></div>
+        <div class="box-body"><div class="chip-row" id="list-work"></div></div>
+        <div class="stash-pocket" id="stashPocket">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+          <span>stash</span><span class="n" id="stashCount">0</span>
+        </div>
+      </div>
+
+      <div class="link-line" id="link-ws"><span class="verb">add</span><div class="arrow"></div></div>
+
+      <div class="box glass" id="box-stage" data-box="stage">
+        <div class="box-head"><span class="num">2</span><div><div class="box-title">Staging Area</div><div class="box-sub">changes marked "ready"</div></div></div>
+        <div class="box-body"><div class="chip-row" id="list-stage"></div></div>
+      </div>
+
+      <div class="link-line" id="link-sl"><span class="verb">commit</span><div class="arrow"></div></div>
+
+      <div class="box glass" id="box-local" data-box="local">
+        <div class="box-head"><span class="num">3</span><div><div class="box-title">Local Repo</div><div class="box-sub">saved snapshots (.git)</div></div></div>
+        <div class="box-body"><div class="chain" id="list-local" data-kind="local"></div><div class="snap" id="snap-local"></div></div>
+      </div>
+
+      <div class="link-line net" id="link-lr"><div class="lbl" id="linkLrLabel">origin</div><span class="verb">push / pull</span><div class="arrow"></div></div>
+
+      <div class="box glass" id="box-remote" data-box="remote">
+        <div class="box-head"><span class="num">4</span><div><div class="box-title">Remote</div><div class="box-sub">a shared copy, e.g. GitHub</div></div></div>
+        <div class="box-body"><div class="chain" id="list-remote" data-kind="remote"></div><div class="snap" id="snap-remote"></div></div>
+      </div>
+    </section>
+
+    <section class="explain-card glass" aria-live="polite">
+      <div class="eyebrow">In plain words</div>
+      <p id="explainText">Pick a command on the left to begin.</p>
+      <div class="tip" id="tipRow" hidden><span class="tip-label">Tip</span><span id="noteText"></span></div>
+    </section>
+
+    <div class="legend">
+      <span><i class="sw-mod"></i>Modified, not staged</span>
+      <span><i class="sw-staged"></i>Staged</span>
+      <span><i class="sw-local"></i>Committed locally</span>
+      <span><i class="sw-remote"></i>On the remote</span>
+      <span><i class="sw-stash"></i>Stashed</span>
+      <span><i class="sw-gone"></i>Discarded</span>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const $ = s => document.querySelector(s);
+const listEl = { work:$('#list-work'), stage:$('#list-stage'), local:$('#list-local'), remote:$('#list-remote') };
+const boxEl = { work:$('#box-work'), stage:$('#box-stage'), local:$('#box-local'), remote:$('#box-remote') };
+
+function getDur(){ return parseInt($('#speed').value,10); }
+function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+// ---------- data model ----------
+// chip: {id, label, cls: mod|staged|clean|danger}
+// commit: {id, label, ghost?:bool}
+// lane commit chain (default): {commits:[...], branches:[{name,at,cls:'branch-main'|'branch-feature'|'branch-tracking', head?:bool}]}
+// graph (merge only): lanes:[{label,commits:[...]}], plus mergeRow after animation
+
+function chip(id,label,cls){ return {id,label,cls}; }
+function commit(id,label,ghost){ return {id,label,ghost:!!ghost}; }
+
+const CATS = [
+  {key:'setup', label:'Setup & Basics'},
+  {key:'inspect', label:'Look Around'},
+  {key:'stage', label:'Stage & Commit'},
+  {key:'branch', label:'Branch & Merge'},
+  {key:'undo', label:'Undo Tools'},
+  {key:'remote', label:'Remote'},
+];
+
+const COMMANDS = [
+// ---------------- SETUP ----------------
+{
+  id:'init', cat:'setup', name:'Initialize a repo', syntax:'git init',
+  explain:'Creates a new, empty .git folder here — this turns an ordinary folder into a Git repository.',
+  note:'',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]}, local:{active:false,commits:[],branches:[]}, remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'popup', box:'local', text:'git init'},
+    {t:'activate', box:'local'},
+    {t:'popup', box:'local', text:'.git/ folder created'},
+  ]
+},
+{
+  id:'clone', cat:'setup', name:'Clone a repo', syntax:'git clone <url>',
+  explain:'Downloads the full project history from a remote URL and checks out a working copy on your machine — all in one step.',
+  note:'It also automatically sets up "origin" pointing back at that remote.',
+  before:{ work:{active:false,chips:[]}, stage:{active:false,chips:[]}, local:{active:false,commits:[],branches:[]},
+    remote:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main'}]}, linked:false, stash:0 },
+  steps:[
+    {t:'activate', box:'local'}, {t:'activate', box:'work'}, {t:'activate', box:'stage'},
+    {t:'copyChain', from:'remote', to:'local'},
+    {t:'setBranches', box:'local', branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    {t:'setFiles', box:'local', files:['index.html','style.css']},
+    {t:'linkOn', label:'origin'},
+    {t:'newChip', box:'work', chip:chip('w1','index.html','clean')},
+    {t:'newChip', box:'work', chip:chip('w2','style.css','clean')},
+    {t:'popup', box:'work', text:'checked out main'},
+  ]
+},
+// ---------------- INSPECT ----------------
+{
+  id:'status', cat:'inspect', name:'Check status', syntax:'git status',
+  explain:'Shows what has changed and what is staged — a read-only snapshot. Nothing moves.',
+  note:'',
+  before:{ work:{active:true,chips:[chip('w1','style.css','mod')]}, stage:{active:true,chips:[chip('s1','index.html','staged')]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'pulse', box:'work', text:'1 modified'},
+    {t:'pulse', box:'stage', text:'1 staged, ready to commit'},
+  ]
+},
+{
+  id:'log', cat:'inspect', name:'View history', syntax:'git log',
+  explain:'Lists the commit history of your current branch, newest first — read-only.',
+  note:'',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme'),commit('c3','Add notes')],branches:[{name:'main',at:'c3',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'pulse', box:'local', text:'c3 Add notes\nc2 Add readme\nc1 Init'},
+  ]
+},
+{
+  id:'diff', cat:'inspect', name:'See changes', syntax:'git diff',
+  explain:'Shows the exact line-by-line changes that have not been staged yet.',
+  note:'Add --staged to compare the staging area against your last commit instead.',
+  before:{ work:{active:true,chips:[chip('w1','style.css','mod')]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'popupBetween', a:'work', b:'stage', text:'- color: blue;\n+ color: teal;'},
+  ]
+},
+{
+  id:'show', cat:'inspect', name:'Show a commit', syntax:'git show <commit>',
+  explain:'Displays the full message and file changes recorded inside one specific commit.',
+  note:'',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme'),commit('c3','Add notes')],branches:[{name:'main',at:'c3',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'highlight', box:'local', id:'c2'},
+    {t:'popupAt', box:'local', id:'c2', text:'c2 "Add readme"\n+ README.md'},
+  ]
+},
+// ---------------- STAGE & COMMIT ----------------
+{
+  id:'add', cat:'stage', name:'Stage a change', syntax:'git add <file>',
+  explain:'Copies a change from your working directory into the staging area, marking it ready to be committed.',
+  note:'',
+  before:{ work:{active:true,chips:[chip('w1','notes.txt','mod')]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'moveChip', id:'w1', from:'work', to:'stage', recolor:'staged'},
+  ]
+},
+{
+  id:'commit', cat:'stage', name:'Commit', syntax:'git commit -m "…"',
+  explain:'Takes everything in the staging area and permanently saves it as a new snapshot (a commit) in your local repo history.',
+  note:'',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[chip('s1','notes.txt','staged')]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'consumeIntoCommit', from:'stage', newId:'c3', label:'Add notes'},
+    {t:'setBranches', box:'local', branches:[{name:'main',at:'c3',cls:'branch-main',head:true}]},
+    {t:'setFiles', box:'local', files:['index.html','style.css','notes.txt']},
+  ]
+},
+// ---------------- BRANCH & MERGE ----------------
+{
+  id:'branch', cat:'branch', name:'Create a branch', syntax:'git branch <name>',
+  explain:'Creates a new branch label pointing at your current commit — you are not switched onto it yet.',
+  note:'',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'addBranchTag', box:'local', id:'c2', name:'feature', cls:'branch-feature'},
+  ]
+},
+{
+  id:'switch', cat:'branch', name:'Switch branches', syntax:'git switch <branch>   (or checkout)',
+  explain:'Moves HEAD to point at a different branch and updates your working files to match that branch\'s last commit.',
+  note:'',
+  before:{ work:{active:true,chips:[chip('w1','index.html','clean')]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],
+      branches:[{name:'main',at:'c2',cls:'branch-main',head:true},{name:'feature',at:'c2',cls:'branch-feature'}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'moveHeadToBranch', box:'local', branch:'feature'},
+    {t:'clearBox', box:'work'},
+    {t:'newChip', box:'work', chip:chip('w2','index.html (feature ver.)','clean')},
+    {t:'popup', box:'work', text:'files updated to match "feature"'},
+  ]
+},
+{
+  id:'merge', cat:'branch', name:'Merge branches', syntax:'git merge <branch>',
+  explain:'Combines another branch\'s commits into your current branch, creating a new merge commit that ties both histories together.',
+  note:'If the same lines were changed on both sides, Git pauses and asks you to resolve the conflict by hand before it can finish.',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]},
+    local:{active:true, graph:true,
+      lanes:[
+        {label:'main', commits:[commit('c1','Init'),commit('c2','main edit')]},
+        {label:'feature', commits:[commit('c3','feature edit')]}
+      ],
+      branches:[{name:'main',at:'c2',cls:'branch-main',head:true},{name:'feature',at:'c3',cls:'branch-feature'}]
+    },
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'popup', box:'local', text:'same line changed on both sides…'},
+    {t:'popup', box:'local', text:'CONFLICT in menu.txt'},
+    {t:'popup', box:'local', text:'resolved by hand → staged'},
+    {t:'mergeCommit', newId:'c4', label:'Merge feature → main'},
+    {t:'setBranches', box:'local', branches:[{name:'main',at:'c4',cls:'branch-main',head:true},{name:'feature',at:'c3',cls:'branch-feature'}]},
+  ]
+},
+// ---------------- UNDO TOOLS ----------------
+{
+  id:'restore', cat:'undo', name:'Discard a change', syntax:'git restore <file>',
+  explain:'Throws away uncommitted changes in your working directory, restoring a file back to its last committed version.',
+  note:'',
+  before:{ work:{active:true,chips:[chip('w1','app.js','mod')]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add app.js')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'recolorChip', box:'work', id:'w1', cls:'danger'},
+    {t:'wait', ms:0.4},
+    {t:'recolorChip', box:'work', id:'w1', cls:'clean', label:'app.js'},
+    {t:'popup', box:'work', text:'back to last commit'},
+  ]
+},
+{
+  id:'revert', cat:'undo', name:'Revert a commit', syntax:'git revert <commit>',
+  explain:'Creates a brand-new commit that reverses an earlier commit\'s changes — safe to use on history you have already shared.',
+  note:'',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme'),commit('c3','Buggy change')],branches:[{name:'main',at:'c3',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'highlight', box:'local', id:'c3'},
+    {t:'popupAt', box:'local', id:'c3', text:'reversing this one'},
+    {t:'newCommit', box:'local', id:'c4', label:'Revert "Buggy change"'},
+    {t:'setBranches', box:'local', branches:[{name:'main',at:'c4',cls:'branch-main',head:true}]},
+  ]
+},
+{
+  id:'stash', cat:'undo', name:'Stash changes', syntax:'git stash   /   git stash pop',
+  explain:'Temporarily shelves your uncommitted changes so your working directory is clean — bring them back anytime with stash pop.',
+  note:'',
+  before:{ work:{active:true,chips:[chip('w1','notes.txt','mod')]}, stage:{active:true,chips:[chip('s1','style.css','staged')]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'stashTuck', ids:[{id:'w1',box:'work'},{id:'s1',box:'stage'}]},
+    {t:'popup', box:'work', text:'working dir is clean'},
+    {t:'wait', ms:1},
+    {t:'popup', box:'work', text:'git stash pop…'},
+    {t:'stashPop', items:[{id:'w1',box:'work',label:'notes.txt',cls:'mod'},{id:'s1',box:'stage',label:'style.css',cls:'staged'}]},
+  ]
+},
+// ---------------- REMOTE ----------------
+{
+  id:'remote', cat:'remote', name:'Add a remote', syntax:'git remote add origin <url>',
+  explain:'Registers a nickname (like "origin") for a remote repository\'s URL — no files or commits move yet.',
+  note:'',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'activate', box:'remote'},
+    {t:'popup', box:'remote', text:'empty — nothing pushed yet'},
+    {t:'linkOn', label:'origin'},
+  ]
+},
+{
+  id:'push', cat:'remote', name:'Push', syntax:'git push origin main',
+  explain:'Uploads your local commits to the remote repo, updating its branch to match yours.',
+  note:'Git refuses to push if the remote has commits you don\'t have yet — fetch/pull first.',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme'),commit('c3','Add notes')],branches:[{name:'main',at:'c3',cls:'branch-main',head:true}],files:['index.html','style.css','notes.txt']},
+    remote:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main'}]}, linked:true, stash:0 },
+  steps:[
+    {t:'copyOne', id:'c3', label:'Add notes', from:'local', to:'remote'},
+    {t:'setBranches', box:'remote', branches:[{name:'main',at:'c3',cls:'branch-main'}]},
+    {t:'setFiles', box:'remote', files:['index.html','style.css','notes.txt']},
+    {t:'popup', box:'remote', text:'origin/main now matches yours'},
+  ]
+},
+{
+  id:'pull', cat:'remote', name:'Pull', syntax:'git pull origin main',
+  explain:'Downloads new commits from the remote and merges them straight into your current branch — fetch and merge in one step.',
+  note:'',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme'),commit('c3','Teammate\'s fix')],branches:[{name:'main',at:'c3',cls:'branch-main'}]}, linked:true, stash:0 },
+  steps:[
+    {t:'popup', box:'remote', text:'fetching…'},
+    {t:'copyOne', id:'c3', label:'Teammate\'s fix', from:'remote', to:'local'},
+    {t:'setBranches', box:'local', branches:[{name:'main',at:'c3',cls:'branch-main',head:true}]},
+    {t:'newChip', box:'work', chip:chip('w1','style.css','clean')},
+    {t:'popup', box:'work', text:'working files updated'},
+  ]
+},
+{
+  id:'fetch', cat:'remote', name:'Fetch', syntax:'git fetch origin',
+  explain:'Downloads new commits from the remote so you can look at them, but does not touch your branch or your working files yet.',
+  note:'Your local main and origin/main can now point at different commits — merge or pull when you\'re ready.',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[]},
+    local:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme')],branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    remote:{active:true,commits:[commit('c1','Init'),commit('c2','Add readme'),commit('c3','Teammate\'s fix')],branches:[{name:'main',at:'c3',cls:'branch-main'}]}, linked:true, stash:0 },
+  steps:[
+    {t:'popup', box:'remote', text:'fetching…'},
+    {t:'copyOne', id:'c3', label:'Teammate\'s fix', from:'remote', to:'local'},
+    {t:'setBranches', box:'local', branches:[{name:'main',at:'c2',cls:'branch-main',head:true},{name:'origin/main',at:'c3',cls:'branch-tracking'}]},
+    {t:'popup', box:'local', text:'main and origin/main now differ'},
+  ]
+},
+];
+
+// ---------------- rendering ----------------
+let current = null;
+
+function clearBubbles(){ document.querySelectorAll('.bubble').forEach(b=>b.remove()); }
+
+function renderChip(c){
+  const el = document.createElement('div');
+  el.className = 'chip ' + c.cls;
+  el.dataset.id = c.id;
+  el.textContent = c.label;
+  return el;
+}
+
+function renderCommitNode(c, tags){
+  const el = document.createElement('div');
+  el.className = 'commit-node' + (c.ghost ? ' ghost':'');
+  el.dataset.id = c.id;
+  el.innerHTML = `<div class="dot"></div><div class="cid">${c.label}</div><div class="tags"></div>`;
+  const tagsEl = el.querySelector('.tags');
+  (tags||[]).forEach(tg=>{
+    if(tg.head){ const h=document.createElement('div'); h.className='tag head'; h.textContent='HEAD'; tagsEl.appendChild(h); }
+    const t=document.createElement('div'); t.className='tag '+tg.cls; t.textContent=tg.name; tagsEl.appendChild(t);
+  });
+  return el;
+}
+
+function tagsForCommit(branches, id){
+  return (branches||[]).filter(b=>b.at===id);
+}
+
+function renderChain(box, data){
+  const el = listEl[box];
+  el.innerHTML = '';
+  el.classList.remove('lanes');
+  if(data.graph){
+    el.classList.add('lanes');
+    data.lanes.forEach(lane=>{
+      const row = document.createElement('div'); row.className='lane';
+      const lbl = document.createElement('div'); lbl.className='lane-label'; lbl.textContent=lane.label; row.appendChild(lbl);
+      lane.commits.forEach(c=> row.appendChild(renderCommitNode(c, tagsForCommit(data.branches, c.id))) );
+      el.appendChild(row);
+    });
+  } else {
+    (data.commits||[]).forEach(c=> el.appendChild(renderCommitNode(c, tagsForCommit(data.branches, c.id))) );
+  }
+}
+
+function setActive(box, active){
+  boxEl[box].classList.toggle('inactive', !active);
+  const bodyEmpty = listEl[box].children.length === 0;
+  let note = boxEl[box].querySelector('.empty-note');
+  if(note) note.remove();
+  if(!active){
+    note = document.createElement('div'); note.className='empty-note';
+    note.textContent = box==='local' ? 'not a repo yet' : 'no remote configured';
+    listEl[box].parentElement.appendChild(note);
+  } else if(bodyEmpty && (box==='local'||box==='remote')){
+    note = document.createElement('div'); note.className='empty-note';
+    note.textContent = 'no commits yet';
+    listEl[box].parentElement.appendChild(note);
+  }
+}
+
+function renderState(cmd){
+  clearBubbles();
+  const b = cmd.before;
+  listEl.work.innerHTML=''; b.work.chips.forEach(c=>listEl.work.appendChild(renderChip(c)));
+  listEl.stage.innerHTML=''; b.stage.chips.forEach(c=>listEl.stage.appendChild(renderChip(c)));
+  renderChain('local', b.local);
+  renderChain('remote', b.remote);
+  renderSnap('local', snapFilesFor(b.local));
+  renderSnap('remote', snapFilesFor(b.remote));
+  setActive('work', b.work.active); setActive('stage', b.stage.active);
+  setActive('local', b.local.active); setActive('remote', b.remote.active);
+  $('#link-lr').classList.toggle('on', !!b.linked);
+  $('#linkLrLabel').textContent = 'origin';
+  $('#stashCount').textContent = b.stash||0;
+  $('#cmdName').textContent = cmd.name;
+  $('#cmdSyntax').textContent = cmd.syntax;
+  $('#explainText').textContent = cmd.explain;
+  $('#noteText').textContent = cmd.note || '';
+  $('#tipRow').hidden = !cmd.note;
+  $('#cmdCat').textContent = (CATS.find(c=>c.key===cmd.cat)||{}).label || '';
+  setProgress(0, 'Ready');
+  document.querySelectorAll('.cmd-btn').forEach(btn=> btn.classList.toggle('active', btn.dataset.id===cmd.id));
+}
+
+// ---------------- animation primitives ----------------
+function findChip(box,id){ return listEl[box].querySelector(`.chip[data-id="${id}"]`); }
+function findCommit(box,id){ return listEl[box].querySelector(`.commit-node[data-id="${id}"]`); }
+
+async function flip(el, toParent, mutate){
+  const first = el.getBoundingClientRect();
+  if(mutate) mutate(el);
+  toParent.appendChild(el);
+  const last = el.getBoundingClientRect();
+  const dx = first.left-last.left, dy = first.top-last.top;
+  el.style.transition='none';
+  el.style.transform = `translate(${dx}px,${dy}px) scale(1.15)`;
+  el.style.zIndex = 40;
+  void el.offsetWidth;
+  const dur = getDur();
+  el.style.transition = `transform ${dur}ms var(--ease)`;
+  el.style.transform = 'translate(0,0) scale(1)';
+  await wait(dur);
+  el.style.zIndex='';
+}
+
+function showBubble(anchorRect, text, holdMs){
+  const b = document.createElement('div');
+  b.className='bubble';
+  b.textContent = text;
+  document.body.appendChild(b);
+  const bw = 240;
+  let left = anchorRect.left + anchorRect.width/2 - bw/2;
+  left = Math.max(8, Math.min(left, window.innerWidth-bw-8));
+  b.style.left = left+'px';
+  b.style.top = (anchorRect.top - 14 - 40)+'px';
+  b.style.position='fixed';
+  requestAnimationFrame(()=> b.classList.add('show'));
+  return new Promise(res=>{
+    setTimeout(async ()=>{
+      b.classList.remove('show');
+      await wait(250);
+      b.remove();
+      res();
+    }, holdMs);
+  });
+}
+
+async function stepPulse(box, text){
+  const el = boxEl[box];
+  el.classList.add('pulsing');
+  const dur = getDur();
+  if(text) await showBubble(el.getBoundingClientRect(), text, Math.max(dur, 1200));
+  else await wait(Math.max(dur*0.7,500));
+  el.classList.remove('pulsing');
+}
+
+async function stepPopup(box, text){
+  await showBubble(boxEl[box].getBoundingClientRect(), text, Math.max(getDur(),1100));
+}
+async function stepPopupBetween(a,b,text){
+  const ra = boxEl[a].getBoundingClientRect(), rb = boxEl[b].getBoundingClientRect();
+  const mid = { left:(ra.left+rb.left)/2 + ra.width/4, width:200, top: Math.min(ra.top,rb.top) };
+  await showBubble(mid, text, Math.max(getDur(),1300));
+}
+async function stepPopupAt(box,id,text){
+  const n = findCommit(box,id);
+  if(n){ n.classList.add('highlight'); await showBubble(n.getBoundingClientRect(), text, Math.max(getDur(),1300)); n.classList.remove('highlight'); }
+}
+async function stepHighlight(box,id){
+  const n = findCommit(box,id);
+  if(n){ n.classList.add('highlight'); await wait(Math.max(getDur()*0.6,400)); }
+}
+
+async function stepMoveChip(id, from, to, recolor){
+  const el = findChip(from,id);
+  if(!el) return;
+  await flip(el, listEl[to], (e)=>{ if(recolor){ e.className='chip '+recolor; } });
+  refreshEmptyNotes();
+}
+
+const DEFAULT_FILES = ['index.html','style.css'];
+function snapFilesFor(d){
+  if(!d.active) return [];
+  if(d.files) return d.files;
+  return ((d.commits && d.commits.length) || d.graph) ? DEFAULT_FILES : [];
+}
+function ensureSnapRow(box){
+  const el = $('#snap-'+box);
+  let row = el.querySelector('.chip-row');
+  if(!row){
+    el.innerHTML = '';
+    const lbl = document.createElement('div'); lbl.className = 'snap-label'; lbl.textContent = 'Files in latest snapshot';
+    row = document.createElement('div'); row.className = 'chip-row';
+    el.appendChild(lbl); el.appendChild(row);
+  }
+  return row;
+}
+function renderSnap(box, files){
+  const el = $('#snap-'+box);
+  el.innerHTML = '';
+  if(!files.length) return;
+  const row = ensureSnapRow(box);
+  files.forEach(f=> row.appendChild(renderChip({id:'f-'+f, label:f, cls:'clean'})));
+}
+async function stepSetFiles(box, files){
+  const row = ensureSnapRow(box);
+  const have = Array.from(row.children).map(c=>c.textContent);
+  const gone = Array.from(row.children).filter(c=> !files.includes(c.textContent));
+  gone.forEach(c=>{ c.style.transition = `transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`; c.style.transform='scale(.2)'; c.style.opacity='0'; });
+  files.filter(f=> !have.includes(f)).forEach(f=>{
+    const c = renderChip({id:'f-'+f, label:f, cls:'clean'});
+    c.style.transform='scale(.3)'; c.style.opacity='0';
+    row.appendChild(c);
+    void c.offsetWidth;
+    c.style.transition = `transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`;
+    c.style.transform='scale(1)'; c.style.opacity='1';
+  });
+  await wait(getDur());
+  gone.forEach(c=>c.remove());
+}
+
+function scrollChainEnd(box){ const c = listEl[box]; if(c) c.scrollLeft = c.scrollWidth; }
+
+function refreshEmptyNotes(){
+  ['work','stage'].forEach(box=>{
+    let note = boxEl[box].querySelector('.empty-note');
+    if(listEl[box].children.length===0){
+      if(!note){ note=document.createElement('div'); note.className='empty-note'; note.textContent='clean — nothing here'; listEl[box].parentElement.appendChild(note); }
+    } else if(note){ note.remove(); }
+  });
+}
+
+async function stepNewChip(box, c){
+  const el = renderChip(c);
+  el.style.transform='scale(.3)'; el.style.opacity='0';
+  listEl[box].appendChild(el);
+  void el.offsetWidth;
+  el.style.transition = `transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`;
+  el.style.transform='scale(1)'; el.style.opacity='1';
+  await wait(getDur());
+  refreshEmptyNotes();
+}
+
+async function stepClearBox(box){
+  const kids = Array.from(listEl[box].children);
+  kids.forEach(k=>{ k.style.transition=`transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`; k.style.transform='scale(.2)'; k.style.opacity='0'; });
+  await wait(getDur());
+  listEl[box].innerHTML='';
+  refreshEmptyNotes();
+}
+
+async function stepRecolorChip(box,id,cls,label){
+  const el = findChip(box,id);
+  if(!el) return;
+  el.style.transition = `transform ${Math.min(getDur(),500)}ms var(--ease)`;
+  el.style.transform='scale(1.2)';
+  el.className = 'chip '+cls;
+  if(label) el.textContent = label;
+  await wait(Math.min(getDur(),500));
+  el.style.transform='scale(1)';
+  await wait(Math.min(getDur(),300));
+}
+
+async function stepActivate(box){
+  boxEl[box].classList.remove('inactive');
+  let note = boxEl[box].querySelector('.empty-note');
+  if(note) note.remove();
+  boxEl[box].classList.add('pulsing');
+  await wait(Math.max(getDur()*0.6,400));
+  boxEl[box].classList.remove('pulsing');
+  if(listEl[box].children.length===0 && (box==='local'||box==='remote')){
+    note = document.createElement('div'); note.className='empty-note'; note.textContent='no commits yet';
+    listEl[box].parentElement.appendChild(note);
+  }
+}
+
+async function stepLinkOn(label){
+  $('#link-lr').classList.add('on');
+  $('#linkLrLabel').textContent = label;
+  await wait(Math.max(getDur()*0.5,350));
+}
+
+async function stepConsumeIntoCommit(from,newId,label){
+  const chips = Array.from(listEl[from].children);
+  const promises = chips.map(el=>{
+    const clone = el;
+    const firstRect = clone.getBoundingClientRect();
+    const targetBox = boxEl.local.getBoundingClientRect();
+    clone.style.position='fixed';
+    clone.style.left = firstRect.left+'px'; clone.style.top = firstRect.top+'px';
+    clone.style.width = firstRect.width+'px';
+    document.body.appendChild(clone);
+    void clone.offsetWidth;
+    clone.style.transition = `transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`;
+    clone.style.transform = `translate(${targetBox.left-firstRect.left+60}px, ${targetBox.top-firstRect.top+20}px) scale(.5)`;
+    clone.style.opacity='0';
+    return wait(getDur()).then(()=>clone.remove());
+  });
+  listEl[from].innerHTML='';
+  refreshEmptyNotes();
+  await Promise.all(promises);
+  const note = boxEl.local.querySelector('.empty-note'); if(note) note.remove();
+  const el = renderCommitNode(commit(newId,label));
+  el.style.transform='scale(.2)'; el.style.opacity='0';
+  listEl.local.appendChild(el);
+  scrollChainEnd('local');
+  void el.offsetWidth;
+  el.style.transition = `transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`;
+  el.style.transform='scale(1)'; el.style.opacity='1';
+  await wait(getDur());
+}
+
+async function stepSetBranches(box, branches){
+  const container = listEl[box];
+  container.querySelectorAll('.commit-node').forEach(n=>{
+    n.querySelector('.tags').innerHTML='';
+  });
+  branches.forEach(tg=>{
+    const n = findCommit(box, tg.at);
+    if(!n) return;
+    const tagsEl = n.querySelector('.tags');
+    if(tg.head){ const h=document.createElement('div'); h.className='tag head'; h.textContent='HEAD'; tagsEl.appendChild(h); }
+    const t=document.createElement('div'); t.className='tag '+tg.cls; t.textContent=tg.name; tagsEl.appendChild(t);
+    n.style.transform='scale(1.15)';
+    setTimeout(()=>{ n.style.transition='transform 300ms var(--ease)'; n.style.transform='scale(1)'; }, 20);
+  });
+  await wait(Math.max(getDur()*0.7,500));
+}
+
+async function stepAddBranchTag(box,id,name,cls){
+  const n = findCommit(box,id);
+  if(!n) return;
+  const tagsEl = n.querySelector('.tags');
+  const t=document.createElement('div'); t.className='tag '+cls; t.textContent=name;
+  t.style.transform='scale(0)'; t.style.opacity='0';
+  tagsEl.appendChild(t);
+  void t.offsetWidth;
+  t.style.transition=`transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`;
+  t.style.transform='scale(1)'; t.style.opacity='1';
+  await wait(getDur());
+}
+
+async function stepMoveHeadToBranch(box,branchName){
+  const el = boxEl[box];
+  const target = Array.from(listEl[box].querySelectorAll('.tag')).find(t=> t.textContent===branchName);
+  if(target){ await showBubble(target.getBoundingClientRect(), 'HEAD → '+branchName, Math.max(getDur(),900)); }
+  listEl[box].querySelectorAll('.tag.head').forEach(h=>h.remove());
+  const node = target ? target.closest('.commit-node') : null;
+  if(node){
+    const tagsEl = node.querySelector('.tags');
+    const h=document.createElement('div'); h.className='tag head'; h.textContent='HEAD';
+    h.style.transform='scale(0)';
+    tagsEl.insertBefore(h, tagsEl.firstChild);
+    void h.offsetWidth;
+    h.style.transition=`transform ${getDur()}ms var(--ease)`;
+    h.style.transform='scale(1)';
+  }
+  await wait(Math.max(getDur()*0.5,300));
+}
+
+async function stepGhostCommit(box,id){
+  const n = findCommit(box,id);
+  if(!n) return;
+  n.classList.add('ghost');
+  await wait(Math.max(getDur()*0.5,300));
+}
+
+async function stepNewCommit(box,id,label){
+  const el = renderCommitNode(commit(id,label));
+  el.style.transform='scale(.2)'; el.style.opacity='0';
+  const note = boxEl[box].querySelector('.empty-note'); if(note) note.remove();
+  listEl[box].appendChild(el);
+  scrollChainEnd(box);
+  void el.offsetWidth;
+  el.style.transition = `transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`;
+  el.style.transform='scale(1)'; el.style.opacity='1';
+  await wait(getDur());
+}
+
+async function stepMergeCommit(newId,label){
+  // collapse graph lanes into a single linear row ending with the merge commit
+  const data = current.before.local;
+  const allCommits = [];
+  data.lanes.forEach(l=> l.commits.forEach(c=> allCommits.push(c)) );
+  listEl.local.classList.remove('lanes');
+  listEl.local.innerHTML='';
+  // de-dup by id (c1 shared ancestor appears once)
+  const seen = new Set();
+  allCommits.forEach(c=>{
+    if(seen.has(c.id)) return; seen.add(c.id);
+    listEl.local.appendChild(renderCommitNode(c));
+  });
+  const el = renderCommitNode(commit(newId,label));
+  el.style.transform='scale(.2)'; el.style.opacity='0';
+  listEl.local.appendChild(el);
+  scrollChainEnd('local');
+  void el.offsetWidth;
+  el.style.transition = `transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`;
+  el.style.transform='scale(1)'; el.style.opacity='1';
+  await wait(getDur());
+}
+
+async function stepCopyChain(from,to){
+  const commits = current.before[from].commits;
+  for(const c of commits){
+    await stepNewCommit(to, c.id, c.label);
+  }
+  const branches = current.before[from].branches;
+  await stepSetBranches(to, branches.map(b=>({...b, head:false})));
+}
+
+async function stepCopyOne(id,label,from,to){
+  await showBubble(boxEl[from].getBoundingClientRect(), 'copying '+id+'…', Math.max(getDur()*0.6,500));
+  await stepNewCommit(to, id, label);
+}
+
+async function stepStashTuck(items){
+  const pocket = $('#stashPocket');
+  const pRect = pocket.getBoundingClientRect();
+  const promises = items.map(({id,box})=>{
+    const el = findChip(box,id);
+    if(!el) return Promise.resolve();
+    const first = el.getBoundingClientRect();
+    el.style.position='fixed'; el.style.left=first.left+'px'; el.style.top=first.top+'px'; el.style.width=first.width+'px'; el.style.zIndex=45;
+    document.body.appendChild(el);
+    void el.offsetWidth;
+    el.style.transition = `transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`;
+    el.style.transform = `translate(${pRect.left-first.left}px, ${pRect.top-first.top}px) scale(.3)`;
+    el.style.opacity='0';
+    return wait(getDur()).then(()=>el.remove());
+  });
+  listEl.work.innerHTML=''; listEl.stage.innerHTML='';
+  await Promise.all(promises);
+  refreshEmptyNotes();
+  $('#stashCount').textContent = items.length;
+  pocket.style.transition='transform 200ms var(--ease)';
+  pocket.style.transform='scale(1.15)';
+  setTimeout(()=> pocket.style.transform='scale(1)', 200);
+}
+
+async function stepStashPop(items){
+  $('#stashCount').textContent = '0';
+  for(const it of items){
+    await stepNewChip(it.box, chip(it.id, it.label, it.cls));
+  }
+}
+
+async function runStep(s){
+  switch(s.t){
+    case 'popup': return stepPopup(s.box, s.text);
+    case 'popupBetween': return stepPopupBetween(s.a, s.b, s.text);
+    case 'popupAt': return stepPopupAt(s.box, s.id, s.text);
+    case 'pulse': return stepPulse(s.box, s.text);
+    case 'highlight': return stepHighlight(s.box, s.id);
+    case 'moveChip': return stepMoveChip(s.id, s.from, s.to, s.recolor);
+    case 'newChip': return stepNewChip(s.box, s.chip);
+    case 'clearBox': return stepClearBox(s.box);
+    case 'recolorChip': return stepRecolorChip(s.box, s.id, s.cls, s.label);
+    case 'activate': return stepActivate(s.box);
+    case 'linkOn': return stepLinkOn(s.label);
+    case 'consumeIntoCommit': return stepConsumeIntoCommit(s.from, s.newId, s.label);
+    case 'setBranches': return stepSetBranches(s.box, s.branches);
+    case 'addBranchTag': return stepAddBranchTag(s.box, s.id, s.name, s.cls);
+    case 'moveHeadToBranch': return stepMoveHeadToBranch(s.box, s.branch);
+    case 'ghostCommit': return stepGhostCommit(s.box, s.id);
+    case 'newCommit': return stepNewCommit(s.box, s.id, s.label);
+    case 'mergeCommit': return stepMergeCommit(s.newId, s.label);
+    case 'copyChain': return stepCopyChain(s.from, s.to);
+    case 'copyOne': return stepCopyOne(s.id, s.label, s.from, s.to);
+    case 'stashTuck': return stepStashTuck(s.ids);
+    case 'stashPop': return stepStashPop(s.items);
+    case 'setFiles': return stepSetFiles(s.box, s.files);
+    case 'wait': return wait(s.ms * getDur());
+    default: return Promise.resolve();
+  }
+}
+
+let playing = false;
+let runToken = 0;
+function setProgress(pct, text){
+  $('#progressBar').style.width = pct + '%';
+  $('#stepStatus').textContent = text;
+}
+async function play(){
+  if(playing) return;
+  playing = true;
+  const mine = ++runToken;
+  $('#runBtn').disabled = true; $('#replayBtn').disabled = true;
+  renderState(current);
+  const total = current.steps.length;
+  await wait(200);
+  for(let i = 0; i < total; i++){
+    if(mine !== runToken) return;
+    setProgress(i / total * 100, 'Step ' + (i+1) + ' of ' + total);
+    await runStep(current.steps[i]);
+  }
+  if(mine !== runToken) return;
+  setProgress(100, 'Done');
+  playing = false;
+  $('#runBtn').disabled = false; $('#replayBtn').disabled = false;
+}
+
+// ---------------- command picker ----------------
+const grid = $('#cmdGrid');
+CATS.forEach(cat=>{
+  const wrap = document.createElement('div'); wrap.className='cat-group';
+  const label = document.createElement('div'); label.className='cat-label'; label.textContent = cat.label;
+  const btns = document.createElement('div'); btns.className='cat-btns';
+  wrap.appendChild(label); wrap.appendChild(btns);
+  grid.appendChild(wrap);
+  COMMANDS.filter(c=>c.cat===cat.key).forEach(c=>{
+    const b = document.createElement('button');
+    b.className='cmd-btn'; b.type='button'; b.dataset.id=c.id; b.dataset.cat=cat.key;
+    const nm = document.createElement('span'); nm.textContent = c.name;
+    const sx = document.createElement('span'); sx.className = 'c';
+    sx.textContent = c.syntax.split(/\s{2,}/)[0].replace(/\s+(<|-m\b).*/, '').trim();
+    b.appendChild(nm); b.appendChild(sx);
+    b.addEventListener('click', ()=> selectCommand(c.id));
+    btns.appendChild(b);
+  });
+});
+
+function selectCommand(id){
+  const cmd = COMMANDS.find(c=>c.id===id);
+  if(!cmd) return;
+  playing = false;
+  runToken++;
+  $('#runBtn').disabled = false; $('#replayBtn').disabled = false;
+  current = cmd;
+  renderState(cmd);
+}
+
+$('#runBtn').addEventListener('click', ()=> play());
+$('#replayBtn').addEventListener('click', ()=>{ if(current){ renderState(current); play(); } });
+
+$('#search').addEventListener('input', (e)=>{
+  const q = e.target.value.trim().toLowerCase();
+  let shown = 0;
+  document.querySelectorAll('.cmd-btn').forEach(btn=>{
+    const cmd = COMMANDS.find(c=>c.id===btn.dataset.id);
+    const hay = (cmd.name+' '+cmd.syntax+' '+cmd.id).toLowerCase();
+    const match = !q || hay.includes(q);
+    btn.hidden = !match;
+    if(match) shown++;
+  });
+  document.querySelectorAll('.cat-group').forEach(g=>{
+    const anyVisible = Array.from(g.querySelectorAll('.cmd-btn')).some(b=>!b.hidden);
+    g.style.display = anyVisible ? '' : 'none';
+  });
+  $('#countBadge').textContent = shown + ' command' + (shown===1?'':'s');
+});
+
+$('#search').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter'){
+    const firstVisible = Array.from(document.querySelectorAll('.cmd-btn')).find(b=>!b.hidden);
+    if(firstVisible) selectCommand(firstVisible.dataset.id);
+  }
+});
+
+selectCommand('status');
+})();
+</script>
+</body>
+</html>
