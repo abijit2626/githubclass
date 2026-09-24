@@ -108,6 +108,10 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Lexend",system-
 #stepStatus{font:500 13px "Lexend",sans-serif;color:var(--ink-dim);min-width:84px;text-align:right;font-variant-numeric:tabular-nums;}
 
 /* ---------- the four areas ---------- */
+.config-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px 20px;}
+.config-bar[hidden]{display:none;}
+.cfg-file{font:600 12px "JetBrains Mono",monospace;color:var(--ink-dim);}
+#cmdSyntax{white-space:pre-line;text-align:left;line-height:1.55;}
 .pipeline{display:flex;align-items:stretch;gap:0;}
 .box{--zone:var(--ink);flex:1 1 0;min-width:148px;padding:16px 15px 16px;display:flex;flex-direction:column;gap:12px;position:relative;transition:box-shadow .3s,border-color .3s,opacity .3s;
   background:radial-gradient(120% 70% at 0% 0%,color-mix(in srgb,var(--zone) 10%,transparent),transparent 62%),var(--glass-fill);}
@@ -242,7 +246,7 @@ img{max-width:100%;}
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="search" type="text" placeholder="Search commands" autocomplete="off" aria-label="Search commands">
     </div>
-    <div class="count" id="countBadge">18 commands</div>
+    <div class="count" id="countBadge">19 commands</div>
     <div class="cmd-grid" id="cmdGrid"></div>
     <div class="side-foot">
       <span>Press Enter to open the first match</span>
@@ -278,6 +282,11 @@ img{max-width:100%;}
         <span id="stepStatus">Ready</span>
       </div>
     </header>
+
+    <div class="config-bar glass" id="configBar" hidden>
+      <span class="cfg-file">~/.gitconfig &nbsp;(global, outside any project)</span>
+      <div class="chip-row" id="cfgRow"></div>
+    </div>
 
     <section class="pipeline" id="boxes" aria-label="The four places your work lives">
       <div class="box glass" id="box-work" data-box="work">
@@ -359,6 +368,23 @@ const CATS = [
 
 const COMMANDS = [
 // ---------------- SETUP ----------------
+{
+  id:'config', cat:'setup', name:'Set your name and email', short:'git config',
+  syntax:'git config --global user.name "Your Name"\ngit config --global user.email "you@example.com"',
+  explain:'Tells Git who you are, once per computer. Every commit you make from now on is stamped with this name and email.',
+  note:'Without this, your first commit fails with "Please tell me who you are". --global means it applies to every project on this computer.',
+  before:{ work:{active:true,chips:[]}, stage:{active:true,chips:[chip('s1','notes.txt','staged')]},
+    local:{active:true,commits:[commit('c1','Init')],branches:[{name:'main',at:'c1',cls:'branch-main',head:true}]},
+    remote:{active:false,commits:[],branches:[]}, linked:false, stash:0 },
+  steps:[
+    {t:'configSet', key:'user.name', value:'Your Name'},
+    {t:'configSet', key:'user.email', value:'you@example.com'},
+    {t:'consumeIntoCommit', from:'stage', newId:'c2', label:'Add notes'},
+    {t:'setBranches', box:'local', branches:[{name:'main',at:'c2',cls:'branch-main',head:true}]},
+    {t:'setFiles', box:'local', files:['index.html','style.css','notes.txt']},
+    {t:'popupAt', box:'local', id:'c2', text:'Author:\nYour Name\n<you@example.com>'},
+  ]
+},
 {
   id:'init', cat:'setup', name:'Initialize a repo', syntax:'git init',
   explain:'Creates a new, empty .git folder here — this turns an ordinary folder into a Git repository.',
@@ -694,6 +720,7 @@ function renderState(cmd){
   $('#tipRow').hidden = !cmd.note;
   $('#cmdCat').textContent = (CATS.find(c=>c.key===cmd.cat)||{}).label || '';
   setProgress(0, 'Ready');
+  $('#configBar').hidden = true; $('#cfgRow').innerHTML = '';
   document.querySelectorAll('.cmd-btn').forEach(btn=> btn.classList.toggle('active', btn.dataset.id===cmd.id));
 }
 
@@ -797,6 +824,17 @@ function renderSnap(box, files){
   const row = ensureSnapRow(box);
   files.forEach(f=> row.appendChild(renderChip({id:'f-'+f, label:f, cls:'clean'})));
 }
+async function stepConfigSet(key, value){
+  $('#configBar').hidden = false;
+  const c = renderChip({id:'cfg-'+key, label:key+' = '+value, cls:'staged'});
+  c.style.transform='scale(.3)'; c.style.opacity='0';
+  $('#cfgRow').appendChild(c);
+  void c.offsetWidth;
+  c.style.transition = `transform ${getDur()}ms var(--ease), opacity ${getDur()}ms var(--ease)`;
+  c.style.transform='scale(1)'; c.style.opacity='1';
+  await wait(getDur());
+}
+
 async function stepSetFiles(box, files){
   const row = ensureSnapRow(box);
   const have = Array.from(row.children).map(c=>c.textContent);
@@ -1065,6 +1103,7 @@ async function runStep(s){
     case 'stashTuck': return stepStashTuck(s.ids);
     case 'stashPop': return stepStashPop(s.items);
     case 'setFiles': return stepSetFiles(s.box, s.files);
+    case 'configSet': return stepConfigSet(s.key, s.value);
     case 'wait': return wait(s.ms * getDur());
     default: return Promise.resolve();
   }
@@ -1108,7 +1147,7 @@ CATS.forEach(cat=>{
     b.className='cmd-btn'; b.type='button'; b.dataset.id=c.id; b.dataset.cat=cat.key;
     const nm = document.createElement('span'); nm.textContent = c.name;
     const sx = document.createElement('span'); sx.className = 'c';
-    sx.textContent = c.syntax.split(/\s{2,}/)[0].replace(/\s+(<|-m\b).*/, '').trim();
+    sx.textContent = c.short || c.syntax.split(/\n|\s{2,}/)[0].replace(/\s+(<|-m\b).*/, '').trim();
     b.appendChild(nm); b.appendChild(sx);
     b.addEventListener('click', ()=> selectCommand(c.id));
     btns.appendChild(b);
